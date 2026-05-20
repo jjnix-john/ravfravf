@@ -235,11 +235,11 @@ function AppInner() {
   const socketRef = useRef(null);
   const chatEndRef = useRef(null);
 
-  // Auto-scroll chat
+  // Auto-scroll chat — use requestAnimationFrame to avoid layout thrash
   useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
+    if (!chatEndRef.current) return;
+    const el = chatEndRef.current.parentElement;
+    if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
   }, [chatMessages, partnerTyping]);
 
   useEffect(() => {
@@ -461,11 +461,13 @@ function AppInner() {
   // Chat
   function sendChatMessage(e) {
     e.preventDefault();
+    e.stopPropagation();
     if (!chatInput.trim()) return;
     const newMsg = {
       id: Date.now(), sender: nickname, text: chatInput.trim(),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
+    setChatInput("");
 
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({ type: "CHAT_MESSAGE", payload: { message: newMsg } }));
@@ -473,36 +475,39 @@ function AppInner() {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newMsg)
       }).catch(() => {});
     } else {
-      const updated = [...chatMessages, newMsg];
-      setChatMessages(updated);
-      localStorage.setItem("safe_space_chat", JSON.stringify(updated));
-      if (broadcastChannelRef.current) {
-        broadcastChannelRef.current.postMessage({ type: "FALLBACK_CHAT_MESSAGE", payload: { message: newMsg } });
-      }
-      if (onlineUsers.length === 0) {
-        setPartnerTyping(true);
-        setTimeout(() => {
-          setPartnerTyping(false);
-          const responses = [
-            "Reading this makes me smile so much! You are my absolute world. 💖",
-            "Every single moment with you is a treasure. I'm so glad we have this safe space together. 🥰",
-            "You always know exactly how to make my heart skip a beat. I love you! ✨",
-            "No matter what happens next, I am always choosing you. Always. 🌸",
-            "You make everything so bright and beautiful. Sending you the warmest hug right now! 🤗",
-          ];
-          const responseMsg = {
-            id: Date.now() + 1,
-            sender: nickname.toLowerCase() === "rizza" ? "Elton" : nickname.toLowerCase() === "elton" ? "Rizza" : "My Love",
-            text: responses[Math.floor(Math.random() * responses.length)],
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          };
-          const finalMessages = [...updated, responseMsg];
-          setChatMessages(finalMessages);
-          localStorage.setItem("safe_space_chat", JSON.stringify(finalMessages));
-        }, 1500);
-      }
+      setChatMessages(prev => {
+        const updated = [...prev, newMsg];
+        setTimeout(() => localStorage.setItem("safe_space_chat", JSON.stringify(updated)), 0);
+        if (broadcastChannelRef.current) {
+          broadcastChannelRef.current.postMessage({ type: "FALLBACK_CHAT_MESSAGE", payload: { message: newMsg } });
+        }
+        if (onlineUsers.length === 0) {
+          setPartnerTyping(true);
+          setTimeout(() => {
+            setPartnerTyping(false);
+            const responses = [
+              "Reading this makes me smile so much! You are my absolute world. 💖",
+              "Every single moment with you is a treasure. I'm so glad we have this safe space together. 🥰",
+              "You always know exactly how to make my heart skip a beat. I love you! ✨",
+              "No matter what happens next, I am always choosing you. Always. 🌸",
+              "You make everything so bright and beautiful. Sending you the warmest hug right now! 🤗",
+            ];
+            const responseMsg = {
+              id: Date.now() + 1,
+              sender: nickname.toLowerCase() === "rizza" ? "Elton" : nickname.toLowerCase() === "elton" ? "Rizza" : "My Love",
+              text: responses[Math.floor(Math.random() * responses.length)],
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+            setChatMessages(prev2 => {
+              const final = [...prev2, responseMsg];
+              setTimeout(() => localStorage.setItem("safe_space_chat", JSON.stringify(final)), 0);
+              return final;
+            });
+          }, 1500);
+        }
+        return updated;
+      });
     }
-    setChatInput("");
   }
 
   function clearChat() {
@@ -1280,8 +1285,11 @@ function AppInner() {
       { src: "/img4.jpg", caption: "Us lying down side-by-side // Our safe, happy, comfy haven 🌸" },
     ], []);
 
+    // Fire confetti only once when vault first opens — tracked by a ref so it never re-triggers
+    const confettiFiredRef = useRef(false);
     useEffect(() => {
-      if (loveLetterOpen) {
+      if (loveLetterOpen && !confettiFiredRef.current) {
+        confettiFiredRef.current = true;
         setConfetti(generateConfetti());
         setCelebrating(true);
         const timeout = setTimeout(() => setCelebrating(false), 5000);
@@ -1325,7 +1333,7 @@ function AppInner() {
                 <span className="text-2xl">💌</span>
                 <h3 className="text-lg sm:text-xl font-serif-elegant font-bold text-rose-600">Our 34-Month Letter</h3>
               </div>
-              <p className="text-xs leading-relaxed font-semibold text-rose-800 bg-white/70 p-3 sm:p-4 rounded-2xl border border-rose-100/50 shadow-xs font-serif-elegant whitespace-pre-line italic">
+              <p className="text-xs leading-relaxed font-semibold text-rose-800 bg-white p-3 sm:p-4 rounded-2xl border border-rose-100 font-serif-elegant whitespace-pre-line italic">
                 {"\"Hey love, its been a while since i made these kinda stuff, eyy english yarn. I just wanna say nga sorry and iloveyou and sorry again and happy motmot, another month another set of away, one thing is for sure, karon kay gatuo kag kalimot ko, pustaan pa nakog 1k charot. Anyways, love, 34months? dugay kaayu na sah imong notes raba ana ka kapoy, well all i can say is, Pakyu pag antos and a happy motmot WHHAHHAHZHHZHHWAHHWHAHAHAHAHA hope na enjoy nimo ako nahimo lovelots and mwa<3\""}
               </p>
               <div className="text-xs text-stone-600 font-serif-elegant italic leading-relaxed space-y-3 pt-2">
@@ -1344,7 +1352,7 @@ function AppInner() {
                 {realPhotos.map((item, index) => (
                   <div key={index} className="overflow-hidden rounded-2xl bg-white border border-rose-100 shadow-sm transition hover:scale-[1.02] active:scale-[0.98] flex flex-col">
                     <img src={item.src} alt={item.caption} className="h-28 sm:h-36 w-full object-cover" loading="lazy" />
-                    <div className="p-2 border-t border-rose-50 bg-rose-50/10 flex-1 flex items-center justify-center">
+                    <div className="p-2 border-t border-rose-50 bg-rose-50 flex-1 flex items-center justify-center">
                       <p className="text-[0.58rem] sm:text-[0.62rem] font-serif-elegant font-bold text-rose-700 text-center leading-tight">{item.caption}</p>
                     </div>
                   </div>
@@ -1458,8 +1466,8 @@ function AppInner() {
       {/* Chat Drawer */}
       {isChatDrawerOpen && (
         <>
-          <div onClick={() => setIsChatDrawerOpen(false)} className="fixed inset-0 bg-rose-950/20 backdrop-blur-xs z-40 transition-opacity animate-pop" />
-          <div className="fixed top-0 right-0 h-full w-full sm:w-80 md:w-96 bg-white/95 border-l border-rose-100 shadow-2xl backdrop-blur-md z-50 flex flex-col animate-slide-in">
+          <div onClick={() => setIsChatDrawerOpen(false)} className="fixed inset-0 bg-rose-950/20 z-40 transition-opacity animate-pop" />
+          <div className="fixed top-0 right-0 h-full w-full sm:w-80 md:w-96 bg-white border-l border-rose-100 shadow-2xl z-50 flex flex-col animate-slide-in" style={{ willChange: "transform" }}>
             <div className="p-4 border-b border-rose-100 flex justify-between items-center bg-gradient-to-r from-rose-50 to-pink-50 safe-area-top">
               <div>
                 <h3 className="text-sm font-serif-elegant font-bold text-rose-600">Shared Safe Notes</h3>
@@ -1482,7 +1490,7 @@ function AppInner() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-white/40">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3" style={{ background: "rgb(255,255,255)", willChange: "transform" }}>
               {chatMessages.map((msg) => {
                 if (msg.sender === "System") {
                   return <div key={msg.id} className="text-center text-[0.62rem] text-stone-400 bg-stone-50 border border-stone-100 py-1 px-2 rounded-full max-w-[80%] mx-auto font-medium">{msg.text}</div>;
@@ -1491,13 +1499,13 @@ function AppInner() {
                 return (
                   <div key={msg.id} className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
                     <span className="text-[0.6rem] text-stone-400 font-bold mb-0.5 px-1">{msg.sender}</span>
-                    <div className={`p-2.5 rounded-2xl text-[0.72rem] leading-relaxed max-w-[85%] border shadow-xs ${isMe ? "bg-rose-500 border-rose-500 text-white rounded-tr-sm" : "bg-white border-rose-100 text-stone-700 rounded-tl-sm"}`}>{msg.text}</div>
+                    <div className={`p-2.5 rounded-2xl text-[0.72rem] leading-relaxed max-w-[85%] border shadow-sm ${isMe ? "bg-rose-500 border-rose-500 text-white rounded-tr-sm" : "bg-white border-rose-100 text-stone-700 rounded-tl-sm"}`}>{msg.text}</div>
                     <span className="text-[0.55rem] text-stone-400 mt-0.5 px-1">{msg.timestamp}</span>
                   </div>
                 );
               })}
               {partnerTyping && (
-                <div className="flex flex-col items-start animate-pulse">
+                <div className="flex flex-col items-start">
                   <span className="text-[0.6rem] text-rose-400 font-bold mb-0.5 px-1">{nickname.toLowerCase() === "rizza" ? "Elton" : nickname.toLowerCase() === "elton" ? "Rizza" : "My Love"}</span>
                   <div className="p-2.5 bg-white border border-rose-100 rounded-2xl text-[0.72rem] rounded-tl-sm text-rose-400 font-medium italic flex items-center gap-1">
                     <span>typing</span>

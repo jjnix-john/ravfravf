@@ -305,6 +305,16 @@ input[type="range"]::-moz-range-thumb {
   }
 }
 
+/* === CHAT DRAWER — prevent flicker/blink === */
+/* Solid background + GPU layer prevents paint flicker on message updates */
+.chat-messages-container {
+  background: #ffffff;
+  will-change: transform;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  isolation: isolate;
+}
+
 /* === MUSIC ICON ANIMATION === */
 @keyframes music-note-float {
   0%, 100% { transform: translateY(0) rotate(-5deg); opacity: 0.7; }
