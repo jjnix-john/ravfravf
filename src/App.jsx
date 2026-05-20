@@ -57,9 +57,6 @@ const STAGE_KEYS = [
   "MATTER",
   "WHAT",
   "HAPPENS NEXT",
-  "FOREVER",
-  "HOLD",
-  "NEVER LET GO",
 ];
 
 // YouTube video ID for "I'm Yours" by Jason Mraz
@@ -411,12 +408,9 @@ function AppInner() {
       2: "Match the pairs — 8 wrong guesses and they re-shuffle! 🧩",
       3: "Tune frequency & phase to overlap the love waves! 🌊",
       4: "Catch rising hearts, avoid 💔 and 🌧️! ✨",
-      5: "Hold the slider on Day 21 for 3 seconds! ⏱️",
-      6: "Watch the stars flash, then repeat the sequence! ⭐",
-      7: "Connection trivia — one wrong and it all resets! 🧠",
-      8: "Tap the rhythm to sync the heartbeats — timing is everything! 🥁",
-      9: "Align three sliders at once — balance is key. ⚖️",
-      10: "Navigate the little heart to the target within a few moves! 🧭",
+      5: "Watch the stars flash, then repeat the sequence! ⭐",
+      6: "Connection trivia — one wrong and it all resets! 🧠",
+      7: "Align three sliders at once — balance is key. ⚖️",
     };
     setGuideMessage(`Stage ${activeStage} // ${messages[activeStage] ?? "Let's proceed with love."}`);
   }, [activeStage, loveLetterOpen, isLocked]);
@@ -918,88 +912,7 @@ function AppInner() {
   }
 
   // ═══════════════════════════════════════════════
-  //  STAGE 5 — Timeline Calibration (glow pulse)
-  // ═══════════════════════════════════════════════
-  function Stage5() {
-    const [day, setDay] = useState(1);
-    const [calibrationProgress, setCalibrationProgress] = useState(0);
-    const [completed, setCompleted] = useState(false);
-
-    useEffect(() => {
-      if (completed) return;
-      const interval = setInterval(() => {
-        if (Math.abs(day - 21) <= 5) {
-          const nudge = Math.random() > 0.5 ? 1 : -1;
-          setDay((prev) => Math.max(1, Math.min(31, prev + nudge)));
-        }
-      }, 350);
-      return () => clearInterval(interval);
-    }, [day, completed]);
-
-    useEffect(() => {
-      if (completed) return;
-      const holdInterval = setInterval(() => {
-        if (day === 21) {
-          setCalibrationProgress((prev) => {
-            const next = prev + 8;
-            if (next >= 100) { setCompleted(true); unlockStage(4, STAGE_KEYS[4]); return 100; }
-            return next;
-          });
-        } else {
-          setCalibrationProgress((prev) => Math.max(0, prev - 15));
-        }
-      }, 150);
-      return () => clearInterval(holdInterval);
-    }, [day, completed]);
-
-    const displayMilestone = useMemo(() => {
-      if (day === 21) return "Our Magical Anniversary! Hold steady at 21 to lock! ⏱️";
-      if (day < 5) return `Day ${day}: Sparks settling in.`;
-      if (day < 10) return `Day ${day}: Building our bridge of trust.`;
-      if (day < 15) return `Day ${day}: Exploring our dreams and hopes.`;
-      if (day < 21) return `Day ${day}: Hearts wide open.`;
-      return `Day ${day}: Warmth of our universe.`;
-    }, [day]);
-
-    const isOnTarget = day === 21;
-
-    return (
-      <div className="space-y-3 sm:space-y-4 animate-fade-in-up">
-        <p className="text-xs text-stone-500 font-serif-elegant italic text-center px-2">
-          Gravity pulls the slider away! Hold precisely on Day 21 for 3 seconds.
-        </p>
-
-        <div className={`py-5 px-4 rounded-2xl border shadow-sm min-h-20 flex items-center justify-center transition-all duration-300 ${isOnTarget ? "bg-gradient-to-br from-yellow-50/50 to-amber-50/50 border-yellow-200 stage5-active-glow" : "bg-gradient-to-br from-rose-50/50 to-pink-50/50 border-rose-100/80"}`}>
-          <p className="text-center font-serif-elegant font-medium text-rose-700 leading-relaxed text-sm animate-pop" key={day}>
-            {displayMilestone}
-          </p>
-        </div>
-
-        <div className="space-y-1">
-          <div className="flex justify-between text-[0.62rem] font-bold text-stone-400 px-1">
-            <span>Calibration Lock:</span>
-            <span className="text-rose-500 font-semibold">{calibrationProgress}%</span>
-          </div>
-          <div className="w-full bg-stone-100 rounded-full h-2.5 overflow-hidden border border-stone-200">
-            <div className={`h-2.5 transition-all duration-100 rounded-full ${completed ? "stage5-locked-bar" : "bg-gradient-to-r from-yellow-400 to-rose-500"}`} style={{ width: `${calibrationProgress}%` }} />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <input type="range" min="1" max="31" value={day} onChange={(e) => setDay(Number(e.target.value))} className="w-full" disabled={completed} />
-          <div className="flex justify-between items-center text-xs font-semibold text-stone-500 px-1">
-            <span>Day {day}/31</span>
-            <span className={completed ? "text-yellow-600" : "text-rose-500"}>
-              {completed ? "✨ TIMELINE LOCKED! 👑" : "Hold steady at 21!"}
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ═══════════════════════════════════════════════
-  //  STAGE 6 — Echo Constellation (star twinkle + line draw)
+  //  STAGE 5 — Echo Constellation (star twinkle + line draw)
   // ═══════════════════════════════════════════════
   function Stage6() {
     const starCoords = {
@@ -1033,7 +946,7 @@ function AppInner() {
     }
 
     function handleStarClick(nodeNum) {
-      if (playbackActive || unlocked[5]) return;
+      if (playbackActive || unlocked[4]) return;
       const nextInputs = [...userInputs, nodeNum];
       setUserInputs(nextInputs);
       setFlashingStar(nodeNum);
@@ -1047,7 +960,7 @@ function AppInner() {
       }
       if (nextInputs.length === targetSequence.length) {
         setMelodyMsg("Acoustic sequence synced! 💖");
-        unlockStage(5, STAGE_KEYS[5]);
+        unlockStage(4, STAGE_KEYS[4]);
       }
     }
 
@@ -1064,14 +977,14 @@ function AppInner() {
           ))}
 
           <svg className="absolute inset-0 w-full h-full pointer-events-none" fill="none" viewBox="0 0 100 100" preserveAspectRatio="none">
-            {unlocked[5] && (
+            {unlocked[4] && (
               <polyline
                 points={targetSequence.map(n => `${starCoords[n].left.replace("%", "")},${starCoords[n].top.replace("%", "")}`).join(" ")}
                 className="stroke-rose-400 stage6-constellation-line"
                 style={{ strokeWidth: 2 }}
               />
             )}
-            {!unlocked[5] && userInputs.length > 1 && (
+            {!unlocked[4] && userInputs.length > 1 && (
               <polyline
                 points={userInputs.map(n => `${starCoords[n].left.replace("%", "")},${starCoords[n].top.replace("%", "")}`).join(" ")}
                 className="stroke-rose-400/60"
@@ -1087,7 +1000,7 @@ function AppInner() {
                 key={nodeNum}
                 type="button"
                 onClick={() => handleStarClick(nodeNum)}
-                disabled={playbackActive || unlocked[5]}
+                disabled={playbackActive || unlocked[4]}
                 className={`absolute w-11 h-11 sm:w-12 sm:h-12 rounded-full flex flex-col items-center justify-center font-serif-elegant text-sm font-bold shadow-md cursor-pointer select-none transition-all duration-200 ${
                   isFlashing
                     ? "bg-yellow-400 text-white scale-125 shadow-lg shadow-yellow-300/50 stage6-star-flash"
@@ -1104,7 +1017,7 @@ function AppInner() {
             );
           })}
 
-          {unlocked[5] && (
+          {unlocked[4] && (
             <div className="absolute inset-0 bg-indigo-950/60 backdrop-blur-xs flex flex-col items-center justify-center text-center animate-pop">
               <span className="text-5xl animate-bounce">❇️</span>
               <p className="text-sm font-serif-elegant font-bold text-white mt-2">Constellation Completed!</p>
@@ -1139,7 +1052,7 @@ function AppInner() {
       if (val === question.answer) {
         setResponses((prev) => {
           const next = { ...prev, [qId]: val };
-          if (questions.every((q) => next[q.id] === q.answer)) unlockStage(6, STAGE_KEYS[6]);
+          if (questions.every((q) => next[q.id] === q.answer)) unlockStage(5, STAGE_KEYS[5]);
           return next;
         });
         setQuizFlipped(qId);
@@ -1185,62 +1098,7 @@ function AppInner() {
   }
 
   // ═══════════════════════════════════════════════
-  //  STAGE 8 — Rhythm Tap (timing challenge)
-  // ═══════════════════════════════════════════════
   function Stage8() {
-    const targetBeats = useMemo(() => [600, 600, 600], []); // ms intervals
-    const [playing, setPlaying] = useState(false);
-    const [flash, setFlash] = useState(false);
-    const tapsRef = useRef([]);
-    const [message, setMessage] = useState("Listen to the beat, then tap 4 times to match the rhythm.");
-
-    function playPattern() {
-      setPlaying(true); setMessage("Listening..."); tapsRef.current = [];
-      let i = 0;
-      const tick = () => {
-        setFlash(true);
-        setTimeout(() => setFlash(false), 180);
-        if (i < targetBeats.length) {
-          setTimeout(() => { i += 1; tick(); }, targetBeats[i]);
-        } else {
-          setTimeout(() => { setPlaying(false); setMessage("Your turn — tap 4 times!"); }, 300);
-        }
-      };
-      tick();
-    }
-
-    function handleTap() {
-      if (playing) return;
-      tapsRef.current.push(Date.now());
-      if (tapsRef.current.length >= 4) {
-        const diffs = [];
-        for (let i = 1; i < tapsRef.current.length; i += 1) diffs.push(tapsRef.current[i] - tapsRef.current[i - 1]);
-        const avg = diffs.reduce((a, b) => a + b, 0) / diffs.length;
-        const targetAvg = targetBeats.reduce((a, b) => a + b, 0) / targetBeats.length;
-        const delta = Math.abs(avg - targetAvg);
-        if (delta < 350) { setMessage("Nice! Rhythm matched."); unlockStage(7, STAGE_KEYS[7]); }
-        else { setMessage("Almost — try again!"); tapsRef.current = []; }
-      }
-    }
-
-    return (
-      <div className="space-y-3 sm:space-y-4 animate-fade-in-up">
-        <p className="text-xs text-stone-500 italic text-center">{message}</p>
-        <div className="relative h-40 sm:h-44 rounded-2xl border border-rose-100 bg-gradient-to-br from-rose-50 to-pink-50 flex items-center justify-center">
-          <div className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl ${flash ? "bg-rose-400 text-white shadow-lg" : "bg-white text-rose-500 border border-rose-100"}`}>💓</div>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={playPattern} type="button" className="flex-1 py-3 btn-primary">Listen</button>
-          <button onClick={handleTap} type="button" className="flex-1 py-3 btn-secondary">Tap</button>
-        </div>
-      </div>
-    );
-  }
-
-  // ═══════════════════════════════════════════════
-  //  STAGE 9 — Triple Slider (simultaneous hold)
-  // ═══════════════════════════════════════════════
-  function Stage9() {
     const targets = useMemo(() => [Math.floor(20 + Math.random() * 60), Math.floor(20 + Math.random() * 60), Math.floor(20 + Math.random() * 60)], []);
     const [s1, setS1] = useState(0);
     const [s2, setS2] = useState(0);
@@ -1252,7 +1110,7 @@ function AppInner() {
       const closeEnough = (v, t) => Math.abs(v - t) <= 3;
       if (closeEnough(s1, targets[0]) && closeEnough(s2, targets[1]) && closeEnough(s3, targets[2])) {
         if (!holdRef.current) {
-          holdRef.current = setTimeout(() => { setMsg("Locked! Keys acquired."); unlockStage(8, STAGE_KEYS[8]); }, 2000);
+          holdRef.current = setTimeout(() => { setMsg("Locked! Keys acquired."); unlockStage(6, STAGE_KEYS[6]); }, 2000);
         }
       } else {
         if (holdRef.current) { clearTimeout(holdRef.current); holdRef.current = null; }
@@ -1276,52 +1134,7 @@ function AppInner() {
   }
 
   // ═══════════════════════════════════════════════
-  //  STAGE 10 — Mini Maze (position puzzle)
-  // ═══════════════════════════════════════════════
-  function Stage10() {
-    const [pos, setPos] = useState({ r: 0, c: 0 });
-    const target = { r: 2, c: 2 };
-    const [moves, setMoves] = useState(0);
-    const maxMoves = 6;
-
-    function move(dr, dc) {
-      setPos((p) => {
-        const nr = Math.max(0, Math.min(2, p.r + dr));
-        const nc = Math.max(0, Math.min(2, p.c + dc));
-        if (nr === p.r && nc === p.c) return p;
-        const next = { r: nr, c: nc };
-        const m = moves + 1;
-        setMoves(m);
-        if (next.r === target.r && next.c === target.c) unlockStage(9, STAGE_KEYS[9]);
-        if (m >= maxMoves && !(next.r === target.r && next.c === target.c)) setTimeout(() => { setMoves(0); setPos({ r: 0, c: 0 }); }, 600);
-        return next;
-      });
-    }
-
-    return (
-      <div className="space-y-3 sm:space-y-4 animate-fade-in-up">
-        <p className="text-xs text-stone-500 italic text-center">Guide the heart to the target within {maxMoves} moves.</p>
-        <div className="grid grid-cols-3 gap-1 max-w-xs mx-auto">
-          {Array.from({ length: 3 }).map((_, r) => Array.from({ length: 3 }).map((__, c) => (
-            <div key={`${r}-${c}`} className={`h-16 flex items-center justify-center rounded-lg border ${pos.r === r && pos.c === c ? 'bg-rose-400 text-white' : (r===2 && c===2 ? 'bg-rose-50 border-rose-200' : 'bg-white')}`}>
-              {pos.r === r && pos.c === c ? '💖' : (r===2 && c===2 ? '🏁' : '')}
-            </div>
-          ))) }
-        </div>
-        <div className="flex gap-2 justify-center">
-          <button onClick={() => move(-1,0)} className="px-3 py-2 btn-primary">↑</button>
-          <button onClick={() => move(1,0)} className="px-3 py-2 btn-primary">↓</button>
-          <button onClick={() => move(0,-1)} className="px-3 py-2 btn-primary">←</button>
-          <button onClick={() => move(0,1)} className="px-3 py-2 btn-primary">→</button>
-        </div>
-      </div>
-    );
-  }
-
-  // ═══════════════════════════════════════════════
-  //  STAGE 11 — Master Vault Finale (renamed)
-  // ═══════════════════════════════════════════════
-  function Stage11() {
+  function Stage9() {
     const realPhotos = useMemo(() => [
       { src: "/img1.jpg", caption: "Playful squishes // 34 months of making faces together 🤪" },
       { src: "/img2.jpg", caption: "Date night smiles // My favorite view in the whole world 💖" },
@@ -1668,13 +1481,10 @@ function AppInner() {
           {activeStage === 2 && <Stage2 />}
           {activeStage === 3 && <Stage3 />}
           {activeStage === 4 && <Stage4 />}
-          {activeStage === 5 && <Stage5 />}
-          {activeStage === 6 && <Stage6 />}
-          {activeStage === 7 && <Stage7 />}
-          {activeStage === 8 && <Stage8 />}
-          {activeStage === 9 && <Stage9 />}
-          {activeStage === 10 && <Stage10 />}
-          {activeStage === vaultStageNumber && <Stage11 />}
+          {activeStage === 5 && <Stage6 />}
+          {activeStage === 6 && <Stage7 />}
+          {activeStage === 7 && <Stage8 />}
+          {activeStage === vaultStageNumber && <Stage9 />}
         </section>
       </div>
 
