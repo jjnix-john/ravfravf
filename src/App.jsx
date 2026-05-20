@@ -1034,64 +1034,140 @@ function AppInner() {
   }
 
   // ═══════════════════════════════════════════════
-  //  STAGE 7 — Connection Quiz (shimmer + shake)
+  //  STAGE 7 — Wordle Challenge (simple word guess)
   // ═══════════════════════════════════════════════
   function Stage7() {
-    const questions = useMemo(() => [
-      { id: 1, text: "True love means never having to say sorry or adjust your habits.", answer: false, explanation: "Correct! Adjusting and apologizing grow our roots deeper. 🌱" },
-      { id: 2, text: "Our 34th month together means we have spent over 1,000 days loving each other.", answer: true, explanation: "Correct! 34 months × 30 days = 1020+ magical days! 🌸" },
-      { id: 3, text: "Small daily acts of appreciation build stronger bonds than a single expensive gift.", answer: true, explanation: "Correct! Daily laughs and warm moments are the ultimate covenant. 💖" }
-    ], []);
+    const WORDS = ["HEART", "MAGIC", "SMILE", "TRULY", "DREAM", "BLOOM", "WARMY", "CANDY", "PEACH", "SHINE"];
+    const targetWord = useMemo(() => WORDS[Math.floor(Math.random() * WORDS.length)], []);
+    const [currentGuess, setCurrentGuess] = useState("");
+    const [guesses, setGuesses] = useState([]);
+    const [feedback, setFeedback] = useState([]);
+    const [message, setMessage] = useState("Guess the 5-letter word in 6 tries.");
+    const [solved, setSolved] = useState(false);
 
-    const [responses, setResponses] = useState({ 1: null, 2: null, 3: null });
-    const [quizFlipped, setQuizFlipped] = useState(null);
-    const [quizError, setQuizError] = useState(false);
+    function evaluateGuess(guess) {
+      const result = Array.from({ length: 5 }, () => "absent");
+      const targetLetters = targetWord.split("");
 
-    function handleQuizAnswer(qId, val) {
-      const question = questions.find((q) => q.id === qId);
-      if (val === question.answer) {
-        setResponses((prev) => {
-          const next = { ...prev, [qId]: val };
-          if (questions.every((q) => next[q.id] === q.answer)) unlockStage(5, STAGE_KEYS[5]);
-          return next;
-        });
-        setQuizFlipped(qId);
+      // mark correct letters first
+      guess.split("").forEach((letter, index) => {
+        if (targetLetters[index] === letter) {
+          result[index] = "correct";
+          targetLetters[index] = null;
+        }
+      });
+      // mark present letters next
+      guess.split("").forEach((letter, index) => {
+        if (result[index] !== "correct") {
+          const presentIndex = targetLetters.indexOf(letter);
+          if (presentIndex >= 0) {
+            result[index] = "present";
+            targetLetters[presentIndex] = null;
+          }
+        }
+      });
+      return result;
+    }
+
+    function handleSubmit() {
+      const guess = currentGuess.trim().toUpperCase();
+      if (guess.length !== 5) {
+        setMessage("Enter exactly 5 letters.");
+        return;
+      }
+      if (guesses.length >= 6 || solved) return;
+
+      const result = evaluateGuess(guess);
+      const nextGuesses = [...guesses, guess];
+      const nextFeedback = [...feedback, result];
+      setGuesses(nextGuesses);
+      setFeedback(nextFeedback);
+      setCurrentGuess("");
+
+      if (guess === targetWord) {
+        setMessage("Perfect! You unlocked the next stage. 💖");
+        setSolved(true);
+        unlockStage(5, STAGE_KEYS[5]);
+        return;
+      }
+
+      if (nextGuesses.length >= 6) {
+        setMessage(`Out of tries — the word was ${targetWord}. Try again!`);
       } else {
-        setQuizError(true);
-        setResponses({ 1: null, 2: null, 3: null }); setQuizFlipped(null);
-        setTimeout(() => setQuizError(false), 800);
+        setMessage(`Keep going — ${6 - nextGuesses.length} guesses left.`);
       }
     }
 
+    function handleInputChange(value) {
+      const filtered = value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5);
+      setCurrentGuess(filtered);
+    }
+
     return (
-      <div className={`space-y-3 sm:space-y-4 animate-fade-in-up ${quizError ? "stage7-wrong-shake" : ""}`}>
+      <div className="space-y-3 sm:space-y-4 animate-fade-in-up">
         <p className="text-xs text-stone-500 font-serif-elegant italic text-center px-2">
-          Connection Trivia — one wrong answer resets the entire quiz!
+          Simple Wordle: guess the hidden 5-letter word in 6 tries.
         </p>
 
-        <div className="space-y-3 sm:space-y-4 max-w-sm mx-auto">
-          {questions.map((q) => {
-            const hasAnswered = responses[q.id] !== null;
-            const isFlipped = quizFlipped === q.id;
-
-            return (
-              <div key={q.id} className="perspective-1000">
-                <div className={`relative w-full rounded-2xl bg-white border border-rose-100 p-4 shadow-sm transition-transform duration-500 transform-style-3d ${isFlipped && hasAnswered ? "rotate-y-180 min-h-28" : ""}`}>
-                  <div className="backface-hidden space-y-3">
-                    <p className="text-[0.75rem] sm:text-[0.8rem] font-semibold text-stone-700 leading-relaxed">{q.text}</p>
-                    <div className="flex gap-2 justify-end">
-                      <button type="button" onClick={() => handleQuizAnswer(q.id, true)} className="px-5 py-2 text-[0.7rem] rounded-full border border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100 active:scale-95 transition min-h-[40px]">True</button>
-                      <button type="button" onClick={() => handleQuizAnswer(q.id, false)} className="px-5 py-2 text-[0.7rem] rounded-full border border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100 active:scale-95 transition min-h-[40px]">False</button>
-                    </div>
+        <div className="space-y-3 max-w-md mx-auto">
+          <div className="grid gap-2">
+            {guesses.map((guess, rowIndex) => (
+              <div key={rowIndex} className="grid grid-cols-5 gap-2">
+                {guess.split("").map((letter, letterIndex) => (
+                  <div key={letterIndex} className={`h-12 flex items-center justify-center rounded-lg font-bold text-sm uppercase border ${
+                    feedback[rowIndex][letterIndex] === "correct" ? "bg-emerald-500 text-white border-emerald-500" :
+                    feedback[rowIndex][letterIndex] === "present" ? "bg-amber-400 text-white border-amber-400" :
+                    "bg-stone-100 text-stone-700 border-stone-200"
+                  }`}>
+                    {letter}
                   </div>
-                  <div className="absolute inset-0 stage7-correct-card rounded-2xl p-4 flex flex-col justify-center rotate-y-180 backface-hidden shadow-inner">
-                    <span className="text-[0.7rem] font-bold text-emerald-600 mb-1">✨ Beautifully True!</span>
-                    <p className="text-[0.68rem] font-medium text-stone-600 leading-relaxed">{q.explanation}</p>
-                  </div>
-                </div>
+                ))}
               </div>
-            );
-          })}
+            ))}
+            {guesses.length < 6 && !solved && (
+              <div className="grid grid-cols-5 gap-2">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <div key={index} className="h-12 flex items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-500 text-sm uppercase">
+                    {currentGuess[index] || ""}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={currentGuess}
+              onChange={(e) => handleInputChange(e.target.value)}
+              disabled={solved || guesses.length >= 6}
+              maxLength={5}
+              className="w-full rounded-2xl border border-stone-200 px-3 py-2 text-sm uppercase tracking-[0.2em] bg-white text-stone-800"
+              placeholder="Type a 5-letter word"
+            />
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={solved || currentGuess.length !== 5}
+              className="rounded-2xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white disabled:bg-stone-300 disabled:text-stone-500"
+            >
+              Guess
+            </button>
+          </div>
+
+          <p className="text-xs text-stone-500 text-center">{message}</p>
+
+          {solved && (
+            <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-700 text-center">
+              Stage complete! The next challenge is now unlocked.
+            </div>
+          )}
+
+          {!solved && guesses.length >= 6 && (
+            <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 text-sm text-slate-700 text-center">
+              You can refresh the page to try again if you want another chance.
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1103,32 +1179,83 @@ function AppInner() {
     const [s1, setS1] = useState(0);
     const [s2, setS2] = useState(0);
     const [s3, setS3] = useState(0);
+    const [progress, setProgress] = useState(0);
+    const [locked, setLocked] = useState(false);
+    const [msg, setMsg] = useState("Slide each control to the hidden target zone and keep them steady for 2 seconds.");
     const holdRef = useRef(null);
-    const [msg, setMsg] = useState("Align all three sliders to the hidden targets and hold for 2s.");
 
     useEffect(() => {
-      const closeEnough = (v, t) => Math.abs(v - t) <= 3;
-      if (closeEnough(s1, targets[0]) && closeEnough(s2, targets[1]) && closeEnough(s3, targets[2])) {
+      const closeEnough = (v, t) => Math.abs(v - t) <= 4;
+      const allAligned = closeEnough(s1, targets[0]) && closeEnough(s2, targets[1]) && closeEnough(s3, targets[2]);
+
+      if (locked) return;
+      if (allAligned) {
         if (!holdRef.current) {
-          holdRef.current = setTimeout(() => { setMsg("Locked! Keys acquired."); unlockStage(6, STAGE_KEYS[6]); }, 2000);
+          setMsg("Perfect! Hold for 2 seconds...");
+          holdRef.current = setTimeout(() => {
+            setLocked(true);
+            setMsg("Locked! Keys acquired.");
+            unlockStage(6, STAGE_KEYS[6]);
+          }, 2000);
         }
+        setProgress((prev) => Math.min(100, prev + 10));
       } else {
-        if (holdRef.current) { clearTimeout(holdRef.current); holdRef.current = null; }
+        if (holdRef.current) {
+          clearTimeout(holdRef.current);
+          holdRef.current = null;
+        }
+        setProgress((prev) => Math.max(0, prev - 30));
+        setMsg("Move the sliders into the target bands and keep them steady.");
       }
-      return () => { if (holdRef.current) { clearTimeout(holdRef.current); holdRef.current = null; } };
-    }, [s1, s2, s3, targets]);
+
+      return () => {
+        if (holdRef.current) {
+          clearTimeout(holdRef.current);
+          holdRef.current = null;
+        }
+      };
+    }, [s1, s2, s3, targets, locked]);
+
+    function renderSlider(label, value, onChange, target) {
+      return (
+        <div className="space-y-1">
+          <div className="flex justify-between text-[0.75rem] font-semibold text-stone-500">
+            <span>{label}</span>
+            <span className="text-rose-500">Target {target}</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={value}
+            onChange={(e) => onChange(Number(e.target.value))}
+            className="w-full"
+          />
+        </div>
+      );
+    }
 
     return (
-      <div className="space-y-3 sm:space-y-4 animate-fade-in-up">
-        <p className="text-xs text-stone-500 italic text-center">{msg}</p>
-        <div className="space-y-2">
-          <div className="flex justify-between text-[0.7rem] text-stone-500"><span>Slider 1</span><span className="text-rose-500">{targets[0]}</span></div>
-          <input type="range" min="0" max="100" value={s1} onChange={(e) => setS1(Number(e.target.value))} />
-          <div className="flex justify-between text-[0.7rem] text-stone-500"><span>Slider 2</span><span className="text-rose-500">{targets[1]}</span></div>
-          <input type="range" min="0" max="100" value={s2} onChange={(e) => setS2(Number(e.target.value))} />
-          <div className="flex justify-between text-[0.7rem] text-stone-500"><span>Slider 3</span><span className="text-rose-500">{targets[2]}</span></div>
-          <input type="range" min="0" max="100" value={s3} onChange={(e) => setS3(Number(e.target.value))} />
+      <div className="space-y-4 animate-fade-in-up">
+        <p className="text-xs text-stone-500 italic text-center px-2">{msg}</p>
+        <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4 shadow-sm">
+          <div className="h-2 w-full rounded-full bg-stone-200 overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-rose-400 to-pink-500 transition-all duration-300" style={{ width: `${progress}%` }} />
+          </div>
+          <p className="mt-2 text-[0.72rem] text-stone-500">Stability: {Math.round(progress)}%</p>
+
+          <div className="mt-4 space-y-3">
+            {renderSlider("Slider 1", s1, setS1, targets[0])}
+            {renderSlider("Slider 2", s2, setS2, targets[1])}
+            {renderSlider("Slider 3", s3, setS3, targets[2])}
+          </div>
         </div>
+
+        {locked && (
+          <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700 text-center">
+            All sliders are aligned. Stage unlocked!
+          </div>
+        )}
       </div>
     );
   }
