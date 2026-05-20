@@ -1181,31 +1181,32 @@ function AppInner() {
     const [s3, setS3] = useState(0);
     const [progress, setProgress] = useState(0);
     const [locked, setLocked] = useState(false);
-    const [msg, setMsg] = useState("Slide each control to the hidden target zone and keep them steady for 2 seconds.");
     const holdRef = useRef(null);
 
-    useEffect(() => {
-      const closeEnough = (v, t) => Math.abs(v - t) <= 4;
-      const allAligned = closeEnough(s1, targets[0]) && closeEnough(s2, targets[1]) && closeEnough(s3, targets[2]);
+    const isClose = (value, target) => Math.abs(value - target) <= 4;
+    const allAligned = isClose(s1, targets[0]) && isClose(s2, targets[1]) && isClose(s3, targets[2]);
+    const statusText = locked
+      ? "Locked! Keys acquired."
+      : allAligned
+        ? "Perfect! Hold all sliders for 2 seconds to unlock."
+        : "Move sliders into the target ranges and keep them steady.";
 
+    useEffect(() => {
       if (locked) return;
       if (allAligned) {
         if (!holdRef.current) {
-          setMsg("Perfect! Hold for 2 seconds...");
           holdRef.current = setTimeout(() => {
             setLocked(true);
-            setMsg("Locked! Keys acquired.");
             unlockStage(6, STAGE_KEYS[6]);
           }, 2000);
         }
-        setProgress((prev) => Math.min(100, prev + 10));
+        setProgress((prev) => Math.min(100, prev + 16));
       } else {
         if (holdRef.current) {
           clearTimeout(holdRef.current);
           holdRef.current = null;
         }
-        setProgress((prev) => Math.max(0, prev - 30));
-        setMsg("Move the sliders into the target bands and keep them steady.");
+        setProgress((prev) => Math.max(0, prev - 26));
       }
 
       return () => {
@@ -1214,14 +1215,21 @@ function AppInner() {
           holdRef.current = null;
         }
       };
-    }, [s1, s2, s3, targets, locked]);
+    }, [allAligned, locked]);
 
     function renderSlider(label, value, onChange, target) {
+      const aligned = isClose(value, target);
       return (
-        <div className="space-y-1">
-          <div className="flex justify-between text-[0.75rem] font-semibold text-stone-500">
+        <div className="space-y-2">
+          <div className="flex justify-between text-[0.75rem] font-semibold text-stone-600">
             <span>{label}</span>
-            <span className="text-rose-500">Target {target}</span>
+            <span className={`rounded-full px-2 py-1 text-[0.65rem] ${aligned ? "bg-emerald-100 text-emerald-700" : "bg-stone-100 text-stone-600"}`}>
+              {value}%
+            </span>
+          </div>
+          <div className="flex justify-between text-[0.72rem] text-stone-500">
+            <span>Target {target}</span>
+            <span>Range ±4</span>
           </div>
           <input
             type="range"
@@ -1236,15 +1244,18 @@ function AppInner() {
     }
 
     return (
-      <div className="space-y-4 animate-fade-in-up">
-        <p className="text-xs text-stone-500 italic text-center px-2">{msg}</p>
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-stone-200 bg-white/90 p-4 shadow-sm">
+          <p className="text-sm font-semibold text-stone-700 text-center">{statusText}</p>
+        </div>
+
         <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4 shadow-sm">
           <div className="h-2 w-full rounded-full bg-stone-200 overflow-hidden">
             <div className="h-full bg-gradient-to-r from-rose-400 to-pink-500 transition-all duration-300" style={{ width: `${progress}%` }} />
           </div>
           <p className="mt-2 text-[0.72rem] text-stone-500">Stability: {Math.round(progress)}%</p>
 
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 space-y-4">
             {renderSlider("Slider 1", s1, setS1, targets[0])}
             {renderSlider("Slider 2", s2, setS2, targets[1])}
             {renderSlider("Slider 3", s3, setS3, targets[2])}
