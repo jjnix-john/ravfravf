@@ -49,7 +49,18 @@ class ErrorBoundary extends Component {
 }
 
 const PHRASE = "always choose you no matter what happens next";
-const STAGE_KEYS = ["ALWAYS", "CHOOSE", "YOU", "NO", "MATTER", "WHAT", "HAPPENS NEXT"];
+const STAGE_KEYS = [
+  "ALWAYS",
+  "CHOOSE",
+  "YOU",
+  "NO",
+  "MATTER",
+  "WHAT",
+  "HAPPENS NEXT",
+  "FOREVER",
+  "HOLD",
+  "NEVER LET GO",
+];
 
 // YouTube video ID for "I'm Yours" by Jason Mraz
 const YOUTUBE_VIDEO_ID = "EkHTsc9PU2A";
@@ -185,9 +196,11 @@ function AppInner() {
 
   // App States
   const [activeStage, setActiveStage] = useState(1);
-  const [unlocked, setUnlocked] = useState(Array(7).fill(false));
-  const [keys, setKeys] = useState(Array(7).fill(null));
+  const [unlocked, setUnlocked] = useState(Array(STAGE_KEYS.length).fill(false));
+  const [keys, setKeys] = useState(Array(STAGE_KEYS.length).fill(null));
   const [guideMessage, setGuideMessage] = useState("Welcome to our safe space. Let's begin the journey.");
+
+  const vaultStageNumber = STAGE_KEYS.length + 1;
 
   // Celebrations
   const [celebrating, setCelebrating] = useState(false);
@@ -216,7 +229,7 @@ function AppInner() {
 
   const accessibleStages = useMemo(() => {
     const access = [true];
-    for (let i = 1; i < 7; i += 1) access.push(unlocked[i - 1]);
+    for (let i = 1; i < STAGE_KEYS.length; i += 1) access.push(unlocked[i - 1]);
     return access;
   }, [unlocked]);
 
@@ -389,8 +402,8 @@ function AppInner() {
   // Guide messages
   useEffect(() => {
     if (isLocked) return;
-    if (activeStage === 8) {
-      setGuideMessage(loveLetterOpen ? "Master Vault Unlocked. Happy 34 Months of Love! 🌸" : "Stage 8 // Enter the Master Vault secret phrase to decrypt the sacred letters.");
+    if (activeStage === vaultStageNumber) {
+      setGuideMessage(loveLetterOpen ? "Master Vault Unlocked. Happy 34 Months of Love! 🌸" : `Stage ${vaultStageNumber} // Enter the Master Vault secret phrase to decrypt the sacred letters.`);
       return;
     }
     const messages = {
@@ -401,6 +414,9 @@ function AppInner() {
       5: "Hold the slider on Day 21 for 3 seconds! ⏱️",
       6: "Watch the stars flash, then repeat the sequence! ⭐",
       7: "Connection trivia — one wrong and it all resets! 🧠",
+      8: "Tap the rhythm to sync the heartbeats — timing is everything! 🥁",
+      9: "Align three sliders at once — balance is key. ⚖️",
+      10: "Navigate the little heart to the target within a few moves! 🧭",
     };
     setGuideMessage(`Stage ${activeStage} // ${messages[activeStage] ?? "Let's proceed with love."}`);
   }, [activeStage, loveLetterOpen, isLocked]);
@@ -425,9 +441,9 @@ function AppInner() {
 
   // Stage select
   function handleStageSelect(index) {
-    if (index === 7) {
-      if (unlocked.every(Boolean)) { setActiveStage(8); setCelebrating(false); }
-      else setGuideMessage("The Master Vault is sealed. Collect all 7 keys first!");
+    if (index === STAGE_KEYS.length) {
+      if (unlocked.every(Boolean)) { setActiveStage(vaultStageNumber); setCelebrating(false); }
+      else setGuideMessage(`The Master Vault is sealed. Collect all ${STAGE_KEYS.length} keys first!`);
       return;
     }
     if (accessibleStages[index] || unlocked[index]) { setActiveStage(index + 1); setCelebrating(false); }
@@ -1169,9 +1185,143 @@ function AppInner() {
   }
 
   // ═══════════════════════════════════════════════
-  //  STAGE 8 — Master Vault Finale
+  //  STAGE 8 — Rhythm Tap (timing challenge)
   // ═══════════════════════════════════════════════
   function Stage8() {
+    const targetBeats = useMemo(() => [600, 600, 600], []); // ms intervals
+    const [playing, setPlaying] = useState(false);
+    const [flash, setFlash] = useState(false);
+    const tapsRef = useRef([]);
+    const [message, setMessage] = useState("Listen to the beat, then tap 4 times to match the rhythm.");
+
+    function playPattern() {
+      setPlaying(true); setMessage("Listening..."); tapsRef.current = [];
+      let i = 0;
+      const tick = () => {
+        setFlash(true);
+        setTimeout(() => setFlash(false), 180);
+        if (i < targetBeats.length) {
+          setTimeout(() => { i += 1; tick(); }, targetBeats[i]);
+        } else {
+          setTimeout(() => { setPlaying(false); setMessage("Your turn — tap 4 times!"); }, 300);
+        }
+      };
+      tick();
+    }
+
+    function handleTap() {
+      if (playing) return;
+      tapsRef.current.push(Date.now());
+      if (tapsRef.current.length >= 4) {
+        const diffs = [];
+        for (let i = 1; i < tapsRef.current.length; i += 1) diffs.push(tapsRef.current[i] - tapsRef.current[i - 1]);
+        const avg = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+        const targetAvg = targetBeats.reduce((a, b) => a + b, 0) / targetBeats.length;
+        const delta = Math.abs(avg - targetAvg);
+        if (delta < 350) { setMessage("Nice! Rhythm matched."); unlockStage(7, STAGE_KEYS[7]); }
+        else { setMessage("Almost — try again!"); tapsRef.current = []; }
+      }
+    }
+
+    return (
+      <div className="space-y-3 sm:space-y-4 animate-fade-in-up">
+        <p className="text-xs text-stone-500 italic text-center">{message}</p>
+        <div className="relative h-40 sm:h-44 rounded-2xl border border-rose-100 bg-gradient-to-br from-rose-50 to-pink-50 flex items-center justify-center">
+          <div className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl ${flash ? "bg-rose-400 text-white shadow-lg" : "bg-white text-rose-500 border border-rose-100"}`}>💓</div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={playPattern} type="button" className="flex-1 py-3 btn-primary">Listen</button>
+          <button onClick={handleTap} type="button" className="flex-1 py-3 btn-secondary">Tap</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════
+  //  STAGE 9 — Triple Slider (simultaneous hold)
+  // ═══════════════════════════════════════════════
+  function Stage9() {
+    const targets = useMemo(() => [Math.floor(20 + Math.random() * 60), Math.floor(20 + Math.random() * 60), Math.floor(20 + Math.random() * 60)], []);
+    const [s1, setS1] = useState(0);
+    const [s2, setS2] = useState(0);
+    const [s3, setS3] = useState(0);
+    const holdRef = useRef(null);
+    const [msg, setMsg] = useState("Align all three sliders to the hidden targets and hold for 2s.");
+
+    useEffect(() => {
+      const closeEnough = (v, t) => Math.abs(v - t) <= 3;
+      if (closeEnough(s1, targets[0]) && closeEnough(s2, targets[1]) && closeEnough(s3, targets[2])) {
+        if (!holdRef.current) {
+          holdRef.current = setTimeout(() => { setMsg("Locked! Keys acquired."); unlockStage(8, STAGE_KEYS[8]); }, 2000);
+        }
+      } else {
+        if (holdRef.current) { clearTimeout(holdRef.current); holdRef.current = null; }
+      }
+      return () => { if (holdRef.current) { clearTimeout(holdRef.current); holdRef.current = null; } };
+    }, [s1, s2, s3, targets]);
+
+    return (
+      <div className="space-y-3 sm:space-y-4 animate-fade-in-up">
+        <p className="text-xs text-stone-500 italic text-center">{msg}</p>
+        <div className="space-y-2">
+          <div className="flex justify-between text-[0.7rem] text-stone-500"><span>Slider 1</span><span className="text-rose-500">{targets[0]}</span></div>
+          <input type="range" min="0" max="100" value={s1} onChange={(e) => setS1(Number(e.target.value))} />
+          <div className="flex justify-between text-[0.7rem] text-stone-500"><span>Slider 2</span><span className="text-rose-500">{targets[1]}</span></div>
+          <input type="range" min="0" max="100" value={s2} onChange={(e) => setS2(Number(e.target.value))} />
+          <div className="flex justify-between text-[0.7rem] text-stone-500"><span>Slider 3</span><span className="text-rose-500">{targets[2]}</span></div>
+          <input type="range" min="0" max="100" value={s3} onChange={(e) => setS3(Number(e.target.value))} />
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════
+  //  STAGE 10 — Mini Maze (position puzzle)
+  // ═══════════════════════════════════════════════
+  function Stage10() {
+    const [pos, setPos] = useState({ r: 0, c: 0 });
+    const target = { r: 2, c: 2 };
+    const [moves, setMoves] = useState(0);
+    const maxMoves = 6;
+
+    function move(dr, dc) {
+      setPos((p) => {
+        const nr = Math.max(0, Math.min(2, p.r + dr));
+        const nc = Math.max(0, Math.min(2, p.c + dc));
+        if (nr === p.r && nc === p.c) return p;
+        const next = { r: nr, c: nc };
+        const m = moves + 1;
+        setMoves(m);
+        if (next.r === target.r && next.c === target.c) unlockStage(9, STAGE_KEYS[9]);
+        if (m >= maxMoves && !(next.r === target.r && next.c === target.c)) setTimeout(() => { setMoves(0); setPos({ r: 0, c: 0 }); }, 600);
+        return next;
+      });
+    }
+
+    return (
+      <div className="space-y-3 sm:space-y-4 animate-fade-in-up">
+        <p className="text-xs text-stone-500 italic text-center">Guide the heart to the target within {maxMoves} moves.</p>
+        <div className="grid grid-cols-3 gap-1 max-w-xs mx-auto">
+          {Array.from({ length: 3 }).map((_, r) => Array.from({ length: 3 }).map((__, c) => (
+            <div key={`${r}-${c}`} className={`h-16 flex items-center justify-center rounded-lg border ${pos.r === r && pos.c === c ? 'bg-rose-400 text-white' : (r===2 && c===2 ? 'bg-rose-50 border-rose-200' : 'bg-white')}`}>
+              {pos.r === r && pos.c === c ? '💖' : (r===2 && c===2 ? '🏁' : '')}
+            </div>
+          ))) }
+        </div>
+        <div className="flex gap-2 justify-center">
+          <button onClick={() => move(-1,0)} className="px-3 py-2 btn-primary">↑</button>
+          <button onClick={() => move(1,0)} className="px-3 py-2 btn-primary">↓</button>
+          <button onClick={() => move(0,-1)} className="px-3 py-2 btn-primary">←</button>
+          <button onClick={() => move(0,1)} className="px-3 py-2 btn-primary">→</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════
+  //  STAGE 11 — Master Vault Finale (renamed)
+  // ═══════════════════════════════════════════════
+  function Stage11() {
     const realPhotos = useMemo(() => [
       { src: "/img1.jpg", caption: "Playful squishes // 34 months of making faces together 🤪" },
       { src: "/img2.jpg", caption: "Date night smiles // My favorite view in the whole world 💖" },
@@ -1196,10 +1346,10 @@ function AppInner() {
               <span className="text-4xl animate-bounce inline-block">🔒</span>
               <h3 className="text-xl font-serif-elegant font-bold text-rose-600">The Master Vault Lock</h3>
               <p className="text-xs text-stone-500 leading-relaxed max-w-sm mx-auto">
-                All 7 stages are unlocked and your keys are complete. Enter the secret phrase to decrypt the sacred vault.
+                All {STAGE_KEYS.length} stages are unlocked and your keys are complete. Enter the secret phrase to decrypt the sacred vault.
               </p>
               <div className="text-[0.62rem] text-rose-400 font-bold uppercase tracking-wider bg-rose-50/70 p-2.5 rounded-xl border border-rose-100 max-w-xs mx-auto">
-                🔑 ALWAYS + CHOOSE + YOU + NO + MATTER + WHAT + HAPPENS NEXT
+                🔑 {STAGE_KEYS.join(' + ')}
               </div>
             </div>
 
@@ -1237,7 +1387,7 @@ function AppInner() {
             <div className="space-y-3">
               <div className="flex items-center justify-between text-xs font-bold text-stone-500 px-1 border-b border-rose-100 pb-2">
                 <span>Sweet Memory Gallery</span>
-                <span className="text-[0.65rem] text-emerald-600 animate-pulse font-semibold">4 Moments 🟢</span>
+                <span className="text-[0.65rem] text-emerald-600 font-semibold">4 Moments 🟢</span>
               </div>
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {realPhotos.map((item, index) => (
@@ -1336,14 +1486,14 @@ function AppInner() {
       <BackgroundMusic isPlaying={isMusicPlaying} onToggle={() => setIsMusicPlaying(!isMusicPlaying)} />
 
       {/* Confetti overlay */}
-      {celebrating && (
+      {celebrating && !(activeStage === vaultStageNumber || loveLetterOpen) && (
         <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
           <div className="absolute inset-0 bg-white/20 backdrop-blur-xs flex items-center justify-center animate-pop">
             <div className="glass-card p-5 sm:p-6 border-rose-300/80 bg-white/90 text-center shadow-2xl flex flex-col items-center">
               <span className="text-5xl animate-bounce">👑</span>
               <h3 className="text-lg sm:text-xl font-serif-elegant font-bold text-rose-600 mt-2">Stage Clear!</h3>
               <p className="text-xs text-stone-500 mt-1">Key: <span className="font-bold text-rose-500">{keys[activeStage - 1]}</span></p>
-              <span className="text-[0.65rem] text-rose-400 mt-3 animate-pulse">Progressing next...</span>
+              <span className="text-[0.65rem] text-rose-400 mt-3">Progressing next...</span>
             </div>
           </div>
           {confetti.map((c) => (
@@ -1481,9 +1631,9 @@ function AppInner() {
             })}
             {/* Vault button */}
             <button
-              type="button" onClick={() => handleStageSelect(7)}
+              type="button" onClick={() => handleStageSelect(STAGE_KEYS.length)}
               className={`relative h-10 min-w-[40px] sm:min-w-[44px] flex-1 rounded-xl sm:rounded-2xl transition flex items-center justify-center cursor-pointer border shrink-0 ${
-                activeStage === 8 ? "ring-2 ring-rose-400 ring-offset-1 bg-gradient-to-tr from-rose-400 to-pink-500 text-white border-transparent"
+                activeStage === vaultStageNumber ? "ring-2 ring-rose-400 ring-offset-1 bg-gradient-to-tr from-rose-400 to-pink-500 text-white border-transparent"
                   : unlocked.every(Boolean) ? "bg-white border-rose-200 text-rose-500 hover:bg-rose-50"
                     : "bg-stone-50 border-stone-200 text-stone-300 pointer-events-none"
               }`}
@@ -1505,10 +1655,10 @@ function AppInner() {
         <section className="glass-card p-4 sm:p-6 space-y-3 sm:space-y-4">
           <div className="flex justify-between items-center text-xs font-semibold text-rose-500 border-b border-rose-100 pb-2 sm:pb-3">
             <span className="uppercase tracking-[0.1em]">
-              {activeStage === 8 ? "Master Finale" : `Stage ${activeStage}/7`}
+              {activeStage === vaultStageNumber ? "Master Finale" : `Stage ${activeStage}/${STAGE_KEYS.length}`}
             </span>
             <span className="text-right">
-              {activeStage === 8
+              {activeStage === vaultStageNumber
                 ? (loveLetterOpen ? "🔓 Open" : "🔒 Locked")
                 : unlocked[activeStage - 1] ? "✨ Acquired" : "🔑 In Progress"}
             </span>
@@ -1522,6 +1672,9 @@ function AppInner() {
           {activeStage === 6 && <Stage6 />}
           {activeStage === 7 && <Stage7 />}
           {activeStage === 8 && <Stage8 />}
+          {activeStage === 9 && <Stage9 />}
+          {activeStage === 10 && <Stage10 />}
+          {activeStage === vaultStageNumber && <Stage11 />}
         </section>
       </div>
 
