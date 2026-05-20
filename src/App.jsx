@@ -1,4 +1,52 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback, Component } from "react";
+
+// ─────────────────────────────────────────────
+// Error Boundary — prevents pink screen crash on mobile
+// ─────────────────────────────────────────────
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    console.error("ErrorBoundary caught:", error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+          background: "linear-gradient(135deg, #fff1f2, #fdf2f8)", padding: 24, textAlign: "center"
+        }}>
+          <div style={{
+            background: "white", borderRadius: 24, padding: 32, maxWidth: 400,
+            boxShadow: "0 8px 32px rgba(244,63,94,0.12)", border: "1px solid #fecdd3"
+          }}>
+            <p style={{ fontSize: 48, marginBottom: 12 }}>🌸</p>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: "#e11d48", marginBottom: 8 }}>Oops! Something broke</h2>
+            <p style={{ fontSize: 13, color: "#78716c", marginBottom: 16, lineHeight: 1.6 }}>
+              Our safe space hit a small bump. Tap below to reload and try again.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                background: "linear-gradient(135deg, #fb7185, #ec4899)", color: "white",
+                border: "none", borderRadius: 999, padding: "12px 32px", fontSize: 14,
+                fontWeight: 600, cursor: "pointer", boxShadow: "0 4px 16px rgba(236,72,153,0.3)"
+              }}
+            >
+              Reload App
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const PHRASE = "always choose you no matter what happens next";
 const STAGE_KEYS = ["ALWAYS", "CHOOSE", "YOU", "NO", "MATTER", "WHAT", "HAPPENS NEXT"];
@@ -38,51 +86,65 @@ function BackgroundMusic({ isPlaying, onToggle }) {
   const playerRef = useRef(null);
 
   useEffect(() => {
-    // Load YouTube IFrame API
-    if (!window.YT) {
-      const tag = document.createElement("script");
-      tag.src = "https://www.youtube.com/iframe_api";
-      document.head.appendChild(tag);
-    }
+    try {
+      // Load YouTube IFrame API
+      if (!window.YT) {
+        const tag = document.createElement("script");
+        tag.src = "https://www.youtube.com/iframe_api";
+        tag.onerror = () => console.warn("YouTube API failed to load");
+        document.head.appendChild(tag);
+      }
 
-    const initPlayer = () => {
-      if (playerRef.current) return;
-      playerRef.current = new window.YT.Player("yt-bg-music", {
-        videoId: YOUTUBE_VIDEO_ID,
-        playerVars: {
-          autoplay: 0,
-          loop: 1,
-          playlist: YOUTUBE_VIDEO_ID,
-          controls: 0,
-          showinfo: 0,
-          modestbranding: 1,
-          rel: 0,
-          playsinline: 1,
-        },
-        events: {
-          onReady: (event) => {
-            event.target.setVolume(6); // Very low volume — barely recognizable
-          },
-        },
-      });
-    };
+      const initPlayer = () => {
+        try {
+          if (playerRef.current) return;
+          playerRef.current = new window.YT.Player("yt-bg-music", {
+            videoId: YOUTUBE_VIDEO_ID,
+            playerVars: {
+              autoplay: 0,
+              loop: 1,
+              playlist: YOUTUBE_VIDEO_ID,
+              controls: 0,
+              showinfo: 0,
+              modestbranding: 1,
+              rel: 0,
+              playsinline: 1,
+            },
+            events: {
+              onReady: (event) => {
+                try { event.target.setVolume(6); } catch (e) {}
+              },
+              onError: () => console.warn("YouTube player error"),
+            },
+          });
+        } catch (e) {
+          console.warn("YouTube player init failed:", e);
+        }
+      };
 
-    if (window.YT && window.YT.Player) {
-      initPlayer();
-    } else {
-      window.onYouTubeIframeAPIReady = initPlayer;
+      if (window.YT && window.YT.Player) {
+        initPlayer();
+      } else {
+        window.onYouTubeIframeAPIReady = initPlayer;
+      }
+    } catch (e) {
+      console.warn("BackgroundMusic setup failed:", e);
     }
   }, []);
 
   useEffect(() => {
-    const player = playerRef.current;
-    if (!player || !player.playVideo) return;
+    try {
+      const player = playerRef.current;
+      if (!player || !player.playVideo) return;
 
-    if (isPlaying) {
-      player.playVideo();
-      player.setVolume(6);
-    } else {
-      player.pauseVideo();
+      if (isPlaying) {
+        player.playVideo();
+        player.setVolume(6);
+      } else {
+        player.pauseVideo();
+      }
+    } catch (e) {
+      console.warn("Music playback toggle failed:", e);
     }
   }, [isPlaying]);
 
@@ -110,7 +172,7 @@ function BackgroundMusic({ isPlaying, onToggle }) {
 }
 
 
-export default function App() {
+function AppInner() {
   const mySessionId = useMemo(() => Math.random().toString(36).substring(2, 9), []);
 
   // Authentication
@@ -173,104 +235,143 @@ export default function App() {
   useEffect(() => {
     if (isLocked || !nickname) return;
 
-    const localChannel = new BroadcastChannel("safe-space-fallback-channel");
-    broadcastChannelRef.current = localChannel;
+    // BroadcastChannel — wrap in try/catch for mobile compatibility
+    // (not supported on iOS Safari < 15.4, some WebViews, etc.)
+    let localChannel = null;
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        localChannel = new BroadcastChannel("safe-space-fallback-channel");
+        broadcastChannelRef.current = localChannel;
 
-    localChannel.onmessage = (event) => {
-      if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
-        const { type, payload } = event.data;
-        if (type === "FALLBACK_PING") {
-          setOnlineUsers((prev) => {
-            if (prev.some((u) => u.sessionId === payload.sessionId)) return prev;
-            return [...prev, { nickname: payload.nickname, sessionId: payload.sessionId }];
-          });
-          localChannel.postMessage({
-            type: "FALLBACK_PONG",
-            payload: { nickname, sessionId: mySessionId, targetSessionId: payload.sessionId }
-          });
-        } else if (type === "FALLBACK_PONG") {
-          if (payload.targetSessionId === mySessionId) {
-            setOnlineUsers((prev) => {
-              if (prev.some((u) => u.sessionId === payload.sessionId)) return prev;
-              return [...prev, { nickname: payload.nickname, sessionId: payload.sessionId }];
-            });
+        localChannel.onmessage = (event) => {
+          try {
+            if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+              const { type, payload } = event.data;
+              if (type === "FALLBACK_PING") {
+                setOnlineUsers((prev) => {
+                  if (prev.some((u) => u.sessionId === payload.sessionId)) return prev;
+                  return [...prev, { nickname: payload.nickname, sessionId: payload.sessionId }];
+                });
+                localChannel.postMessage({
+                  type: "FALLBACK_PONG",
+                  payload: { nickname, sessionId: mySessionId, targetSessionId: payload.sessionId }
+                });
+              } else if (type === "FALLBACK_PONG") {
+                if (payload.targetSessionId === mySessionId) {
+                  setOnlineUsers((prev) => {
+                    if (prev.some((u) => u.sessionId === payload.sessionId)) return prev;
+                    return [...prev, { nickname: payload.nickname, sessionId: payload.sessionId }];
+                  });
+                }
+              } else if (type === "FALLBACK_EXIT") {
+                setOnlineUsers((prev) => prev.filter((u) => u.sessionId !== payload.sessionId));
+              } else if (type === "FALLBACK_CHAT_MESSAGE") {
+                setChatMessages((prev) => {
+                  const next = [...prev, payload.message];
+                  localStorage.setItem("safe_space_chat", JSON.stringify(next));
+                  return next;
+                });
+              }
+            }
+          } catch (e) {
+            console.warn("BroadcastChannel message error:", e);
           }
-        } else if (type === "FALLBACK_EXIT") {
-          setOnlineUsers((prev) => prev.filter((u) => u.sessionId !== payload.sessionId));
-        } else if (type === "FALLBACK_CHAT_MESSAGE") {
-          setChatMessages((prev) => {
-            const next = [...prev, payload.message];
-            localStorage.setItem("safe_space_chat", JSON.stringify(next));
-            return next;
-          });
-        }
+        };
       }
-    };
+    } catch (e) {
+      console.warn("BroadcastChannel not supported:", e);
+      localChannel = null;
+    }
 
     let socket = null;
     let reconnectTimeout = null;
     let isReconnecting = false;
 
+    function safeBroadcast(msg) {
+      try {
+        if (localChannel) localChannel.postMessage(msg);
+      } catch (e) {
+        console.warn("BroadcastChannel send failed:", e);
+      }
+    }
+
     function connectToServer() {
       if (isLocked || !nickname) return;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
 
-      const wsUrl = `ws://${window.location.hostname}:3001`;
-      socket = new WebSocket(wsUrl);
-      socketRef.current = socket;
+      try {
+        const wsUrl = `ws://${window.location.hostname}:3001`;
+        socket = new WebSocket(wsUrl);
+        socketRef.current = socket;
 
-      socket.onopen = () => {
-        setIsServerConnected(true);
-        isReconnecting = false;
-        socket.send(JSON.stringify({ type: "IDENTIFY", payload: { nickname, sessionId: mySessionId } }));
-        fetch(`http://${window.location.hostname}:3001/api/messages`)
-          .then((res) => res.json())
-          .then((data) => {
-            setChatMessages(data);
-            localStorage.setItem("safe_space_chat", JSON.stringify(data));
-          })
-          .catch(() => {});
-      };
+        socket.onopen = () => {
+          setIsServerConnected(true);
+          isReconnecting = false;
+          try {
+            socket.send(JSON.stringify({ type: "IDENTIFY", payload: { nickname, sessionId: mySessionId } }));
+          } catch (e) {}
+          fetch(`http://${window.location.hostname}:3001/api/messages`)
+            .then((res) => res.json())
+            .then((data) => {
+              setChatMessages(data);
+              localStorage.setItem("safe_space_chat", JSON.stringify(data));
+            })
+            .catch(() => {});
+        };
 
-      socket.onmessage = (event) => {
-        try {
-          const { type, payload } = JSON.parse(event.data);
-          if (type === "PRESENCE_UPDATE") {
-            setOnlineUsers(payload.onlineUsers.filter((u) => u.sessionId !== mySessionId));
-          } else if (type === "CHAT_MESSAGE") {
-            setChatMessages((prev) => {
-              const next = [...prev, payload.message];
-              localStorage.setItem("safe_space_chat", JSON.stringify(next));
-              return next;
-            });
+        socket.onmessage = (event) => {
+          try {
+            const { type, payload } = JSON.parse(event.data);
+            if (type === "PRESENCE_UPDATE") {
+              setOnlineUsers(payload.onlineUsers.filter((u) => u.sessionId !== mySessionId));
+            } else if (type === "CHAT_MESSAGE") {
+              setChatMessages((prev) => {
+                const next = [...prev, payload.message];
+                localStorage.setItem("safe_space_chat", JSON.stringify(next));
+                return next;
+              });
+            }
+          } catch (err) {}
+        };
+
+        socket.onclose = () => {
+          setIsServerConnected(false);
+          safeBroadcast({ type: "FALLBACK_PING", payload: { nickname, sessionId: mySessionId } });
+          if (!isReconnecting) {
+            isReconnecting = true;
+            reconnectTimeout = setTimeout(connectToServer, 5000);
           }
-        } catch (err) {}
-      };
+        };
 
-      socket.onclose = () => {
+        socket.onerror = () => {
+          // Silently handle — onclose will fire after this
+        };
+      } catch (e) {
+        console.warn("WebSocket connection failed:", e);
         setIsServerConnected(false);
-        localChannel.postMessage({ type: "FALLBACK_PING", payload: { nickname, sessionId: mySessionId } });
         if (!isReconnecting) {
           isReconnecting = true;
           reconnectTimeout = setTimeout(connectToServer, 5000);
         }
-      };
+      }
     }
 
     connectToServer();
-    localChannel.postMessage({ type: "FALLBACK_PING", payload: { nickname, sessionId: mySessionId } });
+    safeBroadcast({ type: "FALLBACK_PING", payload: { nickname, sessionId: mySessionId } });
 
     const handleExit = () => {
-      if (socket && socket.readyState === WebSocket.OPEN) socket.close();
-      localChannel.postMessage({ type: "FALLBACK_EXIT", payload: { sessionId: mySessionId } });
+      try {
+        if (socket && socket.readyState === WebSocket.OPEN) socket.close();
+        safeBroadcast({ type: "FALLBACK_EXIT", payload: { sessionId: mySessionId } });
+      } catch (e) {}
     };
     window.addEventListener("beforeunload", handleExit);
     return () => {
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       handleExit();
       window.removeEventListener("beforeunload", handleExit);
-      if (socket) socket.close();
-      localChannel.close();
+      try { if (socket) socket.close(); } catch (e) {}
+      try { if (localChannel) localChannel.close(); } catch (e) {}
     };
   }, [isLocked, nickname, mySessionId]);
 
@@ -289,8 +390,7 @@ export default function App() {
   useEffect(() => {
     if (isLocked) return;
     if (activeStage === 8) {
-      const isVaultTimePassed = Date.now() >= new Date("2026-07-23T00:00:00").getTime();
-      setGuideMessage(loveLetterOpen ? (isVaultTimePassed ? "Master Vault Unlocked. Happy 34 Months of Love! 🌸" : "Vault Decrypted! But our memories are locked in a time capsule. ⏳") : "Stage 8 // Enter the Master Vault secret phrase to decrypt the sacred letters.");
+      setGuideMessage(loveLetterOpen ? "Master Vault Unlocked. Happy 34 Months of Love! 🌸" : "Stage 8 // Enter the Master Vault secret phrase to decrypt the sacred letters.");
       return;
     }
     const messages = {
@@ -1079,39 +1179,14 @@ export default function App() {
       { src: "/img4.jpg", caption: "Us lying down side-by-side // Our safe, happy, comfy haven 🌸" },
     ], []);
 
-    const targetDate = useMemo(() => new Date("2026-07-23T00:00:00").getTime(), []);
-    const [currentTime, setCurrentTime] = useState(() => Date.now());
-    const [bypassClicks, setBypassClicks] = useState(0);
-    const [bypassLock, setBypassLock] = useState(false);
-
     useEffect(() => {
-      if (!loveLetterOpen) return;
-      const interval = setInterval(() => setCurrentTime(Date.now()), 1000);
-      return () => clearInterval(interval);
-    }, [loveLetterOpen]);
-
-    const isUnlocked = bypassLock || currentTime >= targetDate;
-    const timeLeft = targetDate - currentTime;
-
-    useEffect(() => {
-      if (loveLetterOpen && isUnlocked) {
+      if (loveLetterOpen) {
         setConfetti(generateConfetti());
         setCelebrating(true);
         const timeout = setTimeout(() => setCelebrating(false), 5000);
         return () => clearTimeout(timeout);
       }
-    }, [loveLetterOpen, isUnlocked]);
-
-    const handleBypassClick = () => {
-      const nextClicks = bypassClicks + 1;
-      setBypassClicks(nextClicks);
-      if (nextClicks >= 5) { setBypassLock(true); setGuideMessage("Bypass Verified: Sealed Vault Opened! 🔓"); }
-    };
-
-    const days = Math.max(0, Math.floor(timeLeft / (1000 * 60 * 60 * 24)));
-    const hours = Math.max(0, Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)));
-    const minutes = Math.max(0, Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60)));
-    const seconds = Math.max(0, Math.floor((timeLeft % (1000 * 60)) / 1000));
+    }, [loveLetterOpen]);
 
     return (
       <div className="space-y-4 animate-fade-in-up">
@@ -1141,40 +1216,6 @@ export default function App() {
                 <button type="button" onClick={autoFillVault} className="px-4 py-3 btn-secondary text-sm font-bold cursor-pointer">Keys 🔗</button>
               </div>
             </div>
-          </div>
-        ) : !isUnlocked ? (
-          <div className="space-y-5 bg-white/60 p-6 sm:p-8 rounded-[2rem] border border-rose-100/80 shadow-xl backdrop-blur-md text-center animate-pop">
-            <div className="space-y-3">
-              <button
-                type="button" onClick={handleBypassClick}
-                className="w-16 h-16 rounded-full bg-rose-50 hover:bg-rose-100 flex items-center justify-center mx-auto border-2 border-rose-100 shadow-sm animate-pulse-soft cursor-pointer transition select-none"
-                title="Time Capsule Sealed"
-              >
-                <span className="text-3xl">⏳</span>
-              </button>
-              <h3 className="text-xl font-serif-elegant font-bold bg-gradient-to-r from-rose-500 to-pink-600 bg-clip-text text-transparent">
-                Time Capsule Sealed
-              </h3>
-              <p className="text-xs text-stone-500 leading-relaxed max-w-sm mx-auto font-medium">
-                Vault decrypted! But memories are sealed until our special date:
-              </p>
-              <div className="text-[0.7rem] text-rose-600 font-bold bg-rose-50/80 px-3 py-1.5 rounded-full inline-block border border-rose-100">
-                📅 July 23, 2026 at Midnight
-              </div>
-            </div>
-
-            <div className="grid grid-cols-4 gap-2 sm:gap-2.5 max-w-xs mx-auto">
-              {[{ val: days, label: "Days" }, { val: String(hours).padStart(2, "0"), label: "Hours" }, { val: String(minutes).padStart(2, "0"), label: "Mins" }, { val: String(seconds).padStart(2, "0"), label: "Secs" }].map((item, i) => (
-                <div key={i} className="bg-rose-50/40 border border-white rounded-2xl p-2.5 sm:p-3 flex flex-col items-center justify-center shadow-inner hover:scale-[1.03] transition duration-200">
-                  <span className={`text-xl sm:text-2xl font-serif-elegant font-bold text-rose-500 tracking-tight font-mono ${i === 3 ? "animate-pulse" : ""}`}>{item.val}</span>
-                  <span className="text-[0.5rem] sm:text-[0.55rem] font-extrabold text-rose-400 uppercase tracking-wider mt-0.5">{item.label}</span>
-                </div>
-              ))}
-            </div>
-
-            <p className="text-[0.65rem] text-rose-400/90 leading-relaxed font-serif-elegant italic max-w-xs mx-auto">
-              "Counting down every tick of the heart until our safe space unfolds completely."
-            </p>
           </div>
         ) : (
           <div className="space-y-5 animate-pop">
@@ -1220,7 +1261,7 @@ export default function App() {
   // ═══════════════════════════════════════════════
   if (isLocked) {
     return (
-      <div className="min-h-screen bg-gradient-to-tr from-rose-50 via-stone-50 to-pink-100 flex items-center justify-center p-4 sm:p-6 relative overflow-hidden select-none">
+      <div className="min-h-screen bg-gradient-to-tr from-rose-50 via-stone-50 to-pink-100 flex items-center justify-center p-4 sm:p-6 relative overflow-hidden select-none" style={{ minHeight: '100dvh' }}>
         {/* Floating particles */}
         <div className="absolute inset-0 pointer-events-none opacity-30">
           {["🌸", "💖", "🌸", "💕", "✨", "🌹"].map((emoji, i) => (
@@ -1290,7 +1331,7 @@ export default function App() {
   //  MAIN APP
   // ═══════════════════════════════════════════════
   return (
-    <div className="min-h-screen bg-gradient-to-tr from-rose-50 via-stone-50 to-pink-100 px-3 sm:px-5 py-6 sm:py-8 text-stone-800 relative pb-32 sm:pb-28 select-none">
+    <div className="min-h-screen min-h-[100dvh] bg-gradient-to-tr from-rose-50 via-stone-50 to-pink-100 px-3 sm:px-5 py-6 sm:py-8 text-stone-800 relative pb-32 sm:pb-28 select-none" style={{ minHeight: '100dvh' }}>
       {/* Background Music */}
       <BackgroundMusic isPlaying={isMusicPlaying} onToggle={() => setIsMusicPlaying(!isMusicPlaying)} />
 
@@ -1468,7 +1509,7 @@ export default function App() {
             </span>
             <span className="text-right">
               {activeStage === 8
-                ? (loveLetterOpen ? (Date.now() >= new Date("2026-07-23T00:00:00").getTime() ? "🔓 Open" : "⏳ Time Locked") : "🔒 Locked")
+                ? (loveLetterOpen ? "🔓 Open" : "🔒 Locked")
                 : unlocked[activeStage - 1] ? "✨ Acquired" : "🔑 In Progress"}
             </span>
           </div>
@@ -1500,5 +1541,14 @@ export default function App() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Wrap entire app with error boundary for mobile resilience
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppInner />
+    </ErrorBoundary>
   );
 }
